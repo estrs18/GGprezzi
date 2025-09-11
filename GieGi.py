@@ -34,7 +34,7 @@ def load_excel(file, file_type):
 
 def search_tuples(sheets, search_tuple_str, file_type):
     """
-    Search for rows containing the specified tuple values
+    Search for rows containing the specified tuple values and display only first and tenth columns
     """
     if not sheets:
         return "No data to search"
@@ -84,14 +84,28 @@ def search_tuples(sheets, search_tuple_str, file_type):
             return "No rows found matching the search criteria"
         
         # Generate HTML for results
-        html_output = f"<h3>{file_type} Search Results</h3>"
+        html_output = f"<h3> Risultati Ricerca {file_type} [Nome prodotto | costo in euro al metro] </h3>"
         for result in results:
             html_output += f"<h4>Sheet: {result['sheet']}</h4>"
             for row_info in result['rows']:
+                # Get first and tenth columns (or last column if fewer than 10)
+                values = row_info['values']
+                num_cols = len(values)
+                
+                # Determine indices to show
+                col_indices = [0]  # Always include first column
+                if num_cols >= 10:
+                    col_indices.append(9)  # Tenth column (index 9)
+                else:
+                    col_indices.append(num_cols - 1)  # Last column
+                
+                # Extract selected columns
+                selected_values = [values[i] for i in col_indices]
+                
                 html_output += f"<p><b>Row {row_info['row_index']}:</b></p>"
                 html_output += "<table border='1' style='border-collapse: collapse;'>"
                 html_output += "<tr>"
-                for val in row_info['values']:
+                for val in selected_values:
                     html_output += f"<td style='border: 1px solid #ddd; padding: 8px;'>{val}</td>"
                 html_output += "</tr></table><br>"
         
