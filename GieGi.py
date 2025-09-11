@@ -3,6 +3,32 @@ import pandas as pd
 from io import BytesIO
 import re
 
+# === CONFIG LOADING ===
+def load_config(config_path="config.txt"):
+    config = {}
+    try:
+        with open(config_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    key, value = line.split('=', 1)
+                    config[key.strip()] = value.strip()
+    except FileNotFoundError:
+        print(f"Config file {config_path} not found. Using defaults.")
+    except Exception as e:
+        print(f"Error reading config: {e}")
+    
+    # Default values
+    config.setdefault('tempo1', 'Default Value 1')
+    config.setdefault('tempo2', 'Default Value 2')
+    config.setdefault('tempo3', 'Default Value 3')
+
+    return config
+
+# Load config at startup
+config = load_config()
+
+# === FILE HANDLING ===
 def load_excel(file, file_type):
     """
     Load Excel file and return a dataframe with sheet information
@@ -83,11 +109,11 @@ def search_tuples(sheets, search_tuple_str, file_type):
         if not results:
             return "No rows found matching the search criteria"
         
-        # Generate HTML for results
-        html_output = f"<h3> Risultati Ricerca {file_type} [Nome prodotto | costo in euro al metro] </h3>"
+        # Generate HTML for results with checkboxes
+        html_output = f"<h3>{file_type} Search Results</h3>"
         for result in results:
             html_output += f"<h4>Sheet: {result['sheet']}</h4>"
-            for row_info in result['rows']:
+            for i, row_info in enumerate(result['rows']):
                 # Get first and tenth columns (or last column if fewer than 10)
                 values = row_info['values']
                 num_cols = len(values)
@@ -102,7 +128,11 @@ def search_tuples(sheets, search_tuple_str, file_type):
                 # Extract selected columns
                 selected_values = [values[i] for i in col_indices]
                 
-                html_output += f"<p><b>Row {row_info['row_index']}:</b></p>"
+                # Create unique ID for checkbox
+                checkbox_id = f"checkbox_{file_type}_{result['sheet']}_{row_info['row_index']}_{i}"
+                
+                html_output += f"<p><input type='checkbox' id='{checkbox_id}'><label for='{checkbox_id}'>"
+                html_output += f"<b>Row {row_info['row_index']}:</b></label></p>"
                 html_output += "<table border='1' style='border-collapse: collapse;'>"
                 html_output += "<tr>"
                 for val in selected_values:
@@ -132,28 +162,36 @@ def search_in_excel(inventario_file, search_tuple_str):
     
     return inventario_search
 
-# Create Gradio interface
+# === GRADIO INTERFACE ===
+
 with gr.Blocks() as demo:
-    gr.Markdown("# Excel Spreadsheet Viewer with Tuple Search")
-    gr.Markdown("Upload Excel files for Inventario and QCC to view their contents and search for specific values")
+    gr.Markdown("# Calcolatore Prezzi Gi&Gi")
+    gr.Markdown("Costi Macchina da QCC. Sono da aggiornare nel file config.txt.")
+    # Display Tempo parameters at the very beginning
+    with gr.Row():
+        tempo1 = gr.Textbox(label="Costo Orario Forno Adesivo in Euro", value=config['tempo1'], interactive=False)
+        tempo2 = gr.Textbox(label="Costo Orario Accoppiatrice in Euro", value=config['tempo2'], interactive=False)
+        tempo3 = gr.Textbox(label="Costo Orario Termoadesivo in Euro", value=config['tempo3'], interactive=False)
+    with gr.Row():
+        tempon1 = gr.Textbox(label="Numero di Passaggi", value=1, interactive=True)
+        tempon2 = gr.Textbox(label="Numero di Passaggi", value=0, interactive=True)
+        tempon3 = gr.Textbox(label="Numero di Passaggi", value=0, interactive=True)
+
+
+    gr.Markdown("Upload Excel files for Inventario to view their contents and search for specific values")
     
     # File upload components
     with gr.Row():
         inventario_file = gr.File(label="Upload Inventario Excel File", file_types=[".xlsx", ".xls"])
-        qcc_file = gr.File(label="Upload QCC Excel File", file_types=[".xlsx", ".xls"])
     
     # Search tuple input
     search_tuple_input = gr.Textbox(
-        label="Search Tuple Values (comma separated)",
-        placeholder="Enter values to search for, e.g.: 'John,Smith,25'"
+        label="Search Tuple Values (comma-separated)",
+        placeholder="Enter values to search for, comma separated"
     )
     
-    # Output components
-    excel_output = gr.HTML(label="Excel Data")
-    search_output = gr.HTML(label="Search Results")
-    
     # Search button
-    search_button = gr.Button("Search for Tuple Values")
+    search_button = gr.Button()
     
     # Event handling
     inventario_file.change(
@@ -162,17 +200,11 @@ with gr.Blocks() as demo:
         #outputs=excel_output commented in order to avoid showing the file
     )
     
-    qcc_file.change(
-        fn=lambda f: load_excel(f, "QCC")[0] if f else "<h2>No QCC file uploaded</h2>",
-        inputs=qcc_file,
-        #outputs=excel_output commented in order to avoid showing the file
-    )
-    
     # Search button click
     search_button.click(
         fn=search_in_excel,
         inputs=[inventario_file, search_tuple_input],
-        outputs=[search_output]
+        #outputs=[search_output]
     )
 
 # Launch the app
