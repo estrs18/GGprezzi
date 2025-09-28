@@ -209,5 +209,5 @@ with gr.Blocks() as demo:
 
 # Launch the app
 if __name__ == "__main__":
-    demo.launch()
+    demo.launch(inbrowser=True)
 
